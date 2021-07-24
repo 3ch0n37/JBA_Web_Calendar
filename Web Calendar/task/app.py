@@ -1,10 +1,19 @@
 from flask import Flask
+from flask_restful import Api, Resource
 import sys
 
 app = Flask(__name__)
 
 # write your code here
+api = Api(app)
 
+
+class WebCalendarResource(Resource):
+    def get(self):
+        return {'data': 'There are no events for today!'}
+
+
+api.add_resource(WebCalendarResource, '/event/today')
 
 
 # do not change the way you run the program
