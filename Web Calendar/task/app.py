@@ -1,6 +1,6 @@
 import datetime
 
-from flask import Flask
+from flask import Flask, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Api, Resource, reqparse, inputs, fields, marshal_with
 import sys
@@ -23,6 +23,18 @@ eventParser.add_argument(
     type=inputs.date,
     help='The event date with the correct format is required! The correct format is YYYY-MM-DD!',
     required=True
+)
+
+rangeParser = reqparse.RequestParser()
+rangeParser.add_argument(
+    'start_time',
+    type=inputs.date,
+    help='Start date is required'
+)
+rangeParser.add_argument(
+    'end_time',
+    type=inputs.date,
+    help='End date is required'
 )
 
 
@@ -62,12 +74,43 @@ class EventResource(Resource):
 
     @marshal_with(event_fields)
     def get(self):
-        return Event.query.all()
+        args = rangeParser.parse_args()
+        if 'start_time' in args and args['start_time'] is not None and 'end_time' in args and args['end_time'] is not None:
+            events = Event.query.filter(Event.date >= args['start_time']).filter(Event.date <= args['end_time']).all()
+            if events is None:
+                abort(404, 'No events in that date range')
+            else:
+                return events
+        else:
+            events = Event.query.all()
+            if events is None:
+                abort(404, 'No events')
+            return events
+
+
+class EventManipulator(Resource):
+    @marshal_with(event_fields)
+    def get(self, event_id):
+        event = Event.query.filter(Event.id == event_id).first()
+        if event is None:
+            abort(404, 'The event doesn\'t exist!')
+        else:
+            return event
+
+    def delete(self, event_id):
+        event = Event.query.filter(Event.id == event_id).first()
+        if event is None:
+            abort(404, 'The event doesn\'t exist!')
+        else:
+            db.session.delete(event)
+            db.session.commit()
+            return {'message': 'The event has been deleted!'}
 
 
 db.create_all()
 api.add_resource(WebCalendarResource, '/event/today')
 api.add_resource(EventResource, '/event')
+api.add_resource(EventManipulator, '/event/<event_id>')
 
 # do not change the way you run the program
 if __name__ == '__main__':
